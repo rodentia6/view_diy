@@ -7,9 +7,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.view.MotionEvent
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.*
 
 
 class AnalogPadView : View {
@@ -19,18 +17,7 @@ class AnalogPadView : View {
         private const val C_BALL = 0.48f
         private const val C_PLAY = 0.52f // 遊び
         private const val Q_PI: Float = (Math.PI / 4).toFloat()
-        private val SNAP_RANGE = Q_PI
-        private val SNAP_AXIS_8: FloatArray =
-            floatArrayOf(0f, Q_PI, Q_PI * 2, Q_PI * 3, Q_PI * 4, -Q_PI * 3, -Q_PI * 2, -Q_PI)
-        private val SNAP_AXIS_4: FloatArray = floatArrayOf(0f, Q_PI * 2, Q_PI * 4, -Q_PI * 2)
-        private fun snapFour(rad: Float): Float {
-            for (axis in SNAP_AXIS_4) {
-                if (Math.abs(axis - rad) <= SNAP_RANGE) {
-                    return axis
-                }
-            }
-            return rad
-        }
+        private val SNAP_RANGE = Q_PI / 2
     }
 
     private val color: Int
@@ -42,9 +29,10 @@ class AnalogPadView : View {
         get() = width.toFloat() / 2
     private val centerY: Float
         get() = height.toFloat() / 2
-    private var cursorX: Float = centerX
-    private var cursorY: Float = centerY
-
+    private val radius: Float
+        get() = Math.min(centerX, centerY)
+    private var valueX: Float = 0f
+    private var valueY: Float = 0f
 
     constructor(context: Context) : this(context, null)
     constructor(context: Context, attrs: AttributeSet?) : this(context, attrs, 0)
@@ -74,31 +62,22 @@ class AnalogPadView : View {
 
     override fun onDraw(canvas: Canvas?) {
         canvas ?: return
-        val r = Math.min(centerX, centerY)
-        val circleSize = r * C_SEAL
-        val ballSize = r * C_BALL
+
+        val circleSize = radius * C_SEAL
+        val ballSize = radius * C_BALL
         canvas.drawCircle(centerX, centerY, circleSize, black)
-        val length = Math.hypot(cursorX.toDouble() - centerX.toDouble(), cursorY.toDouble() - centerY.toDouble())
-        val (x, y) = if (length < r * C_PLAY) {
-            cursorX to cursorY
-        } else {
-            val a2 = atan2(cursorY - centerY, cursorX - centerX)
-            val snapped = snapFour(a2)
-            //4方向スナップ
-            val x2 = centerX + r * C_PLAY * cos(snapped)
-            val y2 = centerY + r * C_PLAY * sin(snapped)
-            x2 to y2
-        }
-        canvas.drawCircle(x, y, ballSize, ball)
-        canvas.drawCircle(x - r * 0.22f, y - r * 0.22f, r * 0.07f, ballHighlight)
+        canvas.drawCircle(centerX + radius * C_PLAY * valueX, centerY + radius * C_PLAY * valueY, ballSize, ball)
+        canvas.drawCircle(
+            centerX + radius * C_PLAY * valueX - radius * 0.22f,
+            centerY + radius * C_PLAY * valueY - radius * 0.22f,
+            radius * 0.07f,
+            ballHighlight
+        )
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val mw = this.paddingLeft + this.paddingRight + MIN_WIDTH * dencity
         val mh = this.paddingTop + this.paddingBottom + MIN_WIDTH * dencity
-        this.cursorX = mw
-        this.cursorY = mh
-
         setMeasuredDimension(
             resolveSize(mw.toInt(), widthMeasureSpec),
             resolveSize(mh.toInt(), heightMeasureSpec)
@@ -110,21 +89,47 @@ class AnalogPadView : View {
         event ?: return false
         when (event.action) {
             MotionEvent.ACTION_MOVE -> {
-                cursorX = event.x
-                cursorY = event.y
+                val p = snapCursorFour(event.x to event.y)
+                valueX = p.first
+                valueY = p.second
                 invalidate()
             }
             MotionEvent.ACTION_UP -> {
-                cursorX = centerX
-                cursorY = centerY
+                valueX = 0f
+                valueY = 0f
                 invalidate()
             }
         }
-        android.util.Log.d("rod6", "${getValue()}")
+        //android.util.Log.d("rod6", "${getValue()}")
         return true
     }
 
+    private fun snapCursorFour(cursor: Pair<Float, Float>): Pair<Float, Float> {
+        val playRad = radius * C_PLAY
+        val (cx, cy) = cursor
+        val vox = (cx - centerX) / playRad
+        val voy = (cy - centerY) / playRad
+        val length = hypot(vox.toDouble(), voy.toDouble())
+        if (length < 1) {
+            return vox to voy
+        }
+
+        val a2 = atan2(voy, vox)
+
+        //4方向スナップ
+        when {
+            abs(a2) < SNAP_RANGE -> return 1f to 0f
+            abs(a2 - Q_PI * 2) < SNAP_RANGE -> return 0f to 1f
+            abs(a2 - Q_PI * 4) < SNAP_RANGE ||
+                    abs(a2 + Q_PI * 4) < SNAP_RANGE -> return -1f to 0f
+            abs(a2 + Q_PI * 2) < SNAP_RANGE -> return 0f to -1f
+        }
+        val x2 = cos(a2)
+        val y2 = sin(a2)
+        return x2 to y2
+    }
+
     fun getValue(): Pair<Float, Float> {
-        return (cursorX - centerX) / centerX to (cursorY - centerY) / centerY
+        return valueX to valueY
     }
 }
