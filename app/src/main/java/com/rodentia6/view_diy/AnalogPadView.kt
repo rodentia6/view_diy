@@ -24,8 +24,8 @@ class AnalogPadView : View {
             floatArrayOf(0f, Q_PI, Q_PI * 2, Q_PI * 3, Q_PI * 4, -Q_PI * 3, -Q_PI * 2, -Q_PI)
         private val SNAP_AXIS_4: FloatArray = floatArrayOf(0f, Q_PI * 2, Q_PI * 4, -Q_PI * 2)
         private fun snapFour(rad: Float): Float {
-            for(axis in SNAP_AXIS_4){
-                if(Math.abs(axis - rad) <= SNAP_RANGE){
+            for (axis in SNAP_AXIS_4) {
+                if (Math.abs(axis - rad) <= SNAP_RANGE) {
                     return axis
                 }
             }
@@ -37,6 +37,7 @@ class AnalogPadView : View {
     private val dencity: Float
     private val black: Paint
     private val ball: Paint
+    private val ballHighlight: Paint
     private val centerX: Float
         get() = width.toFloat() / 2
     private val centerY: Float
@@ -52,7 +53,7 @@ class AnalogPadView : View {
             attrs,
             R.styleable.AnalogPadView
         )
-        color = tArray.getInteger(R.styleable.AnalogPadView_fuga_color, Color.BLUE)
+        color = tArray.getInteger(R.styleable.AnalogPadView_ball_color, Color.BLUE)
         black = Paint().apply {
             style = Paint.Style.FILL
             color = 0xff000000.toInt()
@@ -60,6 +61,10 @@ class AnalogPadView : View {
         ball = Paint().apply {
             style = Paint.Style.FILL
             color = this@AnalogPadView.color
+        }
+        ballHighlight = Paint().apply {
+            style = Paint.Style.FILL
+            color = 0xffffffff.toInt()
         }
 
         dencity = context.resources.displayMetrics.density
@@ -74,17 +79,18 @@ class AnalogPadView : View {
         val ballSize = r * C_BALL
         canvas.drawCircle(centerX, centerY, circleSize, black)
         val length = Math.hypot(cursorX.toDouble() - centerX.toDouble(), cursorY.toDouble() - centerY.toDouble())
-        if (length < r * C_PLAY) {
-            canvas.drawCircle(cursorX, cursorY, ballSize, ball)
+        val (x, y) = if (length < r * C_PLAY) {
+            cursorX to cursorY
         } else {
             val a2 = atan2(cursorY - centerY, cursorX - centerX)
             val snapped = snapFour(a2)
             //4方向スナップ
-            val x = centerX + r * C_PLAY * cos(snapped)
-            val y = centerY + r * C_PLAY * sin(snapped)
-            canvas.drawCircle(x, y, ballSize, ball)
+            val x2 = centerX + r * C_PLAY * cos(snapped)
+            val y2 = centerY + r * C_PLAY * sin(snapped)
+            x2 to y2
         }
-        //android.util.Log.d("rod6", "onDraw() $cursorX, $cursorY")
+        canvas.drawCircle(x, y, ballSize, ball)
+        canvas.drawCircle(x - r * 0.22f, y - r * 0.22f, r * 0.07f, ballHighlight)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -114,6 +120,11 @@ class AnalogPadView : View {
                 invalidate()
             }
         }
+        android.util.Log.d("rod6", "${getValue()}")
         return true
+    }
+
+    fun getValue(): Pair<Float, Float> {
+        return (cursorX - centerX) / centerX to (cursorY - centerY) / centerY
     }
 }

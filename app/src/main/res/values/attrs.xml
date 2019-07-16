@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <declare-styleable name="AnalogPadView">
-        <attr name="fuga_color" format="color" />
+        <attr name="ball_color" format="color" />
     </declare-styleable>
 
     <declare-styleable name="Themes">
